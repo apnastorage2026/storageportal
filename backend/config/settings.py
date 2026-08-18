@@ -10,10 +10,15 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+
+from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / ".env")
 
 
 # Quick-start development settings - unsuitable for production
@@ -39,6 +44,8 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     "rest_framework",      # pip install djangorestframework
     "apps.users",
+    "rest_framework.authtoken",   # NEW - gives us the Token model
+
 ]
 
 MIDDLEWARE = [
@@ -75,12 +82,16 @@ WSGI_APPLICATION = 'config.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        # all values read from .env - nothing hardcoded
+        "NAME": os.environ["DB_NAME"],
+        "USER": os.environ["DB_USER"],
+        "PASSWORD": os.environ["DB_PASSWORD"],
+        "HOST": os.environ["DB_HOST"],
+        "PORT": os.environ["DB_PORT"],
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -124,3 +135,18 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Tells Django to use OUR user model instead of the built-in one
 AUTH_USER_MODEL = "users.User"
+
+# OTP rules - read from .env, nothing hardcoded
+OTP_LENGTH = int(os.environ["OTP_LENGTH"])
+OTP_EXPIRY_MINUTES = int(os.environ["OTP_EXPIRY_MINUTES"])
+OTP_MAX_ATTEMPTS = int(os.environ["OTP_MAX_ATTEMPTS"])
+
+# During development the OTP email prints to your terminal
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+DEFAULT_FROM_EMAIL = os.environ["DEFAULT_FROM_EMAIL"]
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.TokenAuthentication",
+    ],
+}
