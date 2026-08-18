@@ -1,30 +1,42 @@
-import re
-
+from django.contrib.auth import authenticate
 from rest_framework import serializers
-from .models import User
 
-ALLOWED_EMAIL_DOMAIN = "gmail.com"
-MOB_PATTERN = re.compile(r"^[6-9]\d{9}$")   # Indian mobile: starts 6-9, exactly 10 digits
+from .models import User
+from .services import CHANNEL_FIELD
 
 
 class SignupSerializer(serializers.ModelSerializer):
+    password = serializers.CharField(write_only=True, min_length=8)
+
     class Meta:
         model = User
-        fields = ["name", "username", "email", "mob", "password"]
-        extra_kwargs = {"password": {"write_only": True}}
-
-    # DRF finds this by name and calls it for the "email" field
-    def validate_email(self, value):
-        # split on the last "@" so "a@b@gmail.com" can't sneak through
-        domain = value.rsplit("@", 1)[-1].lower()
-        if domain != ALLOWED_EMAIL_DOMAIN:
-            raise serializers.ValidationError(f"Only {ALLOWED_EMAIL_DOMAIN} addresses are allowed.")
-        return value.lower()   # whatever you return is what gets saved
-
-    def validate_mob(self, value):
-        if not MOB_PATTERN.fullmatch(value):
-            raise serializers.ValidationError("Enter a valid 10-digit mobile number.")
-        return value
+        fields = ("name", "username", "email", "mob", "password")
 
     def create(self, validated_data):
         return User.objects.create_user(**validated_data)
+
+
+class SigninSerializer(serializers.Serializer):
+    # plain Serializer, not ModelSerializer - we are not creating a row
+    username = serializers.CharField()
+    password = serializers.CharField(write_only=True)
+
+    def validate(self, attrs):
+        # authenticate() checks the hash for us and returns None on failure
+        user = authenticate(username=attrs["username"], password=attrs["password"])
+        if user is None:
+            # same message for wrong password AND unknown user
+            raise serializers.ValidationError("Invalid credentials.")
+        attrs["user"] = user
+        return attrs
+
+
+class OTPRequestSerializer(serializers.Serializer):
+    channel = serializers.ChoiceField(choices=list(CHANNEL_FIELD))
+    value = serializers.CharField()
+
+
+class OTPVerifySerializer(serializers.Serializer):
+    channel = serializers.ChoiceField(choices=list(CHANNEL_FIELD))
+    value = serializers.CharField()
+    otp = serializers.CharField()
